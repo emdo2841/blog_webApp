@@ -1,0 +1,42 @@
+{
+  "dependencies": {
+    "@mailchimp/mailchimp_marketing": "^3.0.80",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.2.0",
+    "cloudinary": "^2.7.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.16.0",
+    "multer": "^2.0.1",
+    "redis": "^5.5.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/mailchimp__mailchimp_marketing": "^3.0.22",
+    "@types/multer": "^1.4.13",
+    "@types/node": "^24.0.3",
+    "cors": "^2.8.5",
+    "install": "^0.13.0",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  },
+  "name": "blog_api",
+  "version": "1.0.0",
+  "main": "app.ts",
+  "scripts": {
+    "start": "ts-node src/app.ts",
+    "build": "tsc",
+    "serve": "node dist/app.js",
+    "test": "ts-node src/app.ts",
+    "dev": "nodemon src/app.ts"
+  },
+  "author": "emmanuel jonathan",
+  "license": "ISC",
+  "description": ""
+}
