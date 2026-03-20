@@ -89,7 +89,7 @@ const blogSchema = new Schema<IBlogPost>(
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
+      ref: "Section",
     },
     body: {
       type: String,

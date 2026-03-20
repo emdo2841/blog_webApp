@@ -17,9 +17,9 @@ export const newBlog = async (
     const authorId = req.user?.id;
     
     // 2. Extract Body Data
-    const { title, body, state } = req.body;
+    const { title, body, state, category } = req.body;
 
-    if (!title || !body) {
+    if (!title || !body || !category) {
       res.status(400).json({ message: "Provide title and body" });
       return;
     }
@@ -50,8 +50,9 @@ export const newBlog = async (
     const newPostBlog = await Blog.create({
       title,
       state: state || "draft",
-      author: authorId, // Automatically link to the logged-in admin
+      author: authorId,// Automatically link to the logged-in admin
       body,
+      category,
       images: validImageUrls,
     });
 
@@ -81,7 +82,7 @@ export const getBlogs = async (req: Request, res: Response) => {
             return;
         }
 
-        const blog = await Blog.find({}).populate("author").sort({createdAt:-1});
+        const blog = await Blog.find({}).populate("author").populate("category").sort({createdAt:-1});
         if (!blog || blog.length === 0) {
             res.status(404).json({
                 message: "Oh No!! Blog Post",
@@ -160,7 +161,6 @@ export const getBlogById = async (req: Request, res: Response) => {
   }
 };
 
-
 // ==========================================
 // 4. UPDATE BLOG
 // ==========================================
@@ -170,7 +170,10 @@ export const updateBlog = async (
 ) => {
   try {
     const { id } = req.params;
-    const { title, body, state } = req.body;
+    
+    // FIX 1: Add 'category' to the destructuring
+    const { title, body, state, category } = req.body; 
+    
     const userId = req.user?.id;
 
     // 1. Validate ID
@@ -179,37 +182,31 @@ export const updateBlog = async (
       return;
     }
 
-    // 2. Find existing blog to check ownership and get current images
+    // 2. Find existing blog
     const blog = await Blog.findById(id);
     if (!blog) {
       res.status(404).json({ success: false, message: "Blog not found" });
       return;
     }
 
-    // 3. Check Ownership (Optional: Depending on your requirements, admins might be able to edit anything)
+    // 3. Check Ownership
     if (blog.author.toString() !== userId) {
       res.status(403).json({ success: false, message: "Not authorized to update this blog" });
       return;
     }
 
-    // 4. Handle Image Updates (Optional)
-    // - If new files are uploaded, replace the old images.
-    // - If no new files, keep the existing images.
+    // 4. Handle Image Updates
     let updatedImages = blog.images;
     const files = req.files as Express.Multer.File[];
 
     if (files && files.length > 0) {
-      // Validate minimum image count if new images are provided
       if (files.length < 2) {
          res.status(400).json({success: false, message: "If updating images, please provide at least 2"});
          return;
       }
-      
       const uploadPromises = files.map(file => uploadToCloudinary(file.buffer, file.originalname));
       const uploadedUrls = await Promise.all(uploadPromises);
       updatedImages = uploadedUrls.filter((url): url is string => url !== null);
-      
-      // TODO: Ideally, you would delete the old images from Cloudinary here to save space.
     }
 
     // 5. Update Database Entry
@@ -219,17 +216,20 @@ export const updateBlog = async (
         title: title || blog.title,
         body: body || blog.body,
         state: state || blog.state,
+        
+        // FIX 2: Add the category update logic here
+        category: category || blog.category, 
+        
         images: updatedImages,
-        updatedAt: Date.now(), // Manually update timestamp if desired
+        updatedAt: Date.now(),
       },
-      { new: true } // Return the updated document
-    ).populate("author");
+      { new: true }
+    )
+    .populate("author")
+    .populate("category"); // FIX 3: Populate category so frontend updates the badge immediately
 
     // --- REDIS CACHE INVALIDATION ---
-    // The blog data has changed.
-    // 1. Clear the cache for this specific blog ID so the next fetch gets fresh data.
     await redisClient.del(`blogs${id}`);
-    // 2. Clear the main list cache because the title/summary might have changed.
     await redisClient.del("blogs");
 
     res.status(200).json({
@@ -340,5 +340,78 @@ export const searchBlogs = async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Search failed", error: err });
+  }
+};
+
+export const getTrendingBlogs = async (req: Request, res: Response) => {
+  try {
+    // 1. Define "Recent": Only look at posts from the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // 2. Fetch candidates (we assume trending news is usually recent)
+    // We select only necessary fields to make the fetch fast
+    const recentBlogs = await Blog.find({
+      createdAt: { $gte: sevenDaysAgo },
+      state: "published" 
+    }).populate("author", "first_name surname image");
+
+    // 3. Apply the Algorithm
+    const trendingBlogs = recentBlogs.map((blog) => {
+      const blogData = blog.toObject();
+      
+      // Calculate Time in Hours since creation
+      const timeInHours = (Date.now() - new Date(blog.createdAt).getTime()) / (1000 * 60 * 60);
+      
+      // Prevent division by zero or negative gravity
+      const gravity = Math.pow(timeInHours + 2, 1.5);
+
+      // Weighted Score: Comments are worth 2x likes
+      const score = ((blog.likeCount * 1) + (blog.commentCount * 2)) / gravity;
+
+      return { ...blogData, trendingScore: score };
+    });
+
+    // 4. Sort by Score (Highest first) and take top 5
+    trendingBlogs.sort((a, b) => b.trendingScore - a.trendingScore);
+    const topTrending = trendingBlogs.slice(0, 5);
+
+    res.status(200).json({
+      success: true,
+      data: topTrending,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Error fetching trending news" });
+  }
+};export const getBlogsByCategory = async (req: Request, res: Response) => {
+  try {
+    // 1. We extract 'categoryId' because the route is now /category/:categoryId
+    const { categoryId } = req.params;
+
+    // 2. Validate
+    if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
+      res.status(400).json({ success: false, message: "Invalid Category ID" });
+      return; 
+    }
+
+    // 3. Find blogs matching this category
+    const blogs = await Blog.find({ 
+      category: categoryId,
+      state: "published"
+    })
+    .populate("author", "first_name surname image")
+    .populate("category")
+    .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: blogs,
+    });
+
+  } catch (err) {
+    console.error("Error fetching category blogs:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err });
   }
 };

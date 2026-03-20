@@ -17,5 +17,5 @@ const categorySchema = new Schema<IBlogCategory>({
 
 )
 
-const BlogCategory = mongoose.model<IBlogCategory>("Category", categorySchema);
+const BlogCategory = mongoose.model<IBlogCategory>("Section", categorySchema);
 export default BlogCategory;

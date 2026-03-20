@@ -1,33 +1,43 @@
 import BlogCategory,{IBlogCategory} from "../models/categories"
 import { Request, Response } from "express"
 
-export const category = async ( req: Request<{}, {}, IBlogCategory>, res:Response) =>{
-    const name = req.body
-    try {
-        
-    if(!name){
-       res.status(400).json({
-        success: false,
-        message:"provide name of category"
-       }) 
-    }
-    const category = await BlogCategory.create({name})
-    res.status(201).json({
-        success: true,
-        message: "New category created successfully",
-        data: category
-    })
 
-    }catch(err){
-        console.log(`error occurred ${err}`)
+
+export const category = async (req: Request<{}, {}, IBlogCategory>, res: Response) => {
+    try {
+        // 1. FIX: Destructure 'name' from req.body
+        const { name } = req.body; 
+
+        // 2. FIX: Add 'return' to stop execution if validation fails
+        if (!name) {
+            res.status(400).json({
+                success: false,
+                message: "Please provide the name of the category"
+            });
+            return; // <--- Crucial: Stop the function here
+        }
+
+        // 3. Create the category
+        // Since we extracted 'name' as a string above, { name } is now valid shorthand for { name: name }
+        const newCategory = await BlogCategory.create({ name });
+
+        res.status(201).json({
+            success: true,
+            message: "New category created successfully",
+            data: newCategory
+        });
+
+    } catch (err) {
+        console.error(`Error creating category:`, err);
         res.status(500).json({
             success: false,
-            error: "server error",
-
-        })
-
+            message: "Server error while creating category",
+            error: err
+        });
     }
-}
+};
+
+// ... keep your existing getCategory function ...
 
 export const getCategory = async(req: Request, res:Response) =>{
     try{

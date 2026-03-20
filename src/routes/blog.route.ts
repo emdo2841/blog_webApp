@@ -1,16 +1,19 @@
 import express from "express";
 import { upload } from "../cloudinary"
 import { verifyToken, verifyAdmin } from '../middleware/auth'
-import { newBlog, getBlogs, getBlogById, updateBlog, deleteBlog, searchBlogs } from "../controllers/blog";
+import { newBlog, getBlogs, getBlogById, updateBlog, deleteBlog, searchBlogs, getTrendingBlogs, getBlogsByCategory } from "../controllers/blog";
 
 const blogRouter = express.Router();
 
 blogRouter.post("/",  verifyToken, verifyAdmin, upload.array("images", 5), newBlog)
 blogRouter.get("/", getBlogs)
+blogRouter.get('/trending', getTrendingBlogs)
 blogRouter.get("/search", searchBlogs)
+blogRouter.get("/category/:categoryId", getBlogsByCategory)
 blogRouter.get("/:id", getBlogById)
 blogRouter.put("/:id", verifyToken, verifyAdmin, upload.array("images", 5), updateBlog )
 blogRouter.delete("/:id", verifyToken, verifyAdmin, deleteBlog)
+
 
 
 

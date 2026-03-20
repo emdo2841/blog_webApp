@@ -30,10 +30,7 @@ export const uploadToCloudinary = (
         public_id: filename.split(".")[0], // optional: clean filename
         fetch_format: "auto",
         quality: "auto",
-        crop: "auto",
-        gravity: "auto",
-        width: 500,
-        height: 500,
+        
       },
       (error, result) => {
         if (error) {
