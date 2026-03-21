@@ -26,7 +26,7 @@ app.use("/api/newsletter", newsletterRouter)
 
 // Connect to the database
 connectToDb()
-const port = 8080;
+const port = process.env.PORT || 8080;
 app.get("/", ( req: Request, res: Response) => {
     res.status(200).end("Hello, World!");
 })
